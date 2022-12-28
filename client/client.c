@@ -137,6 +137,7 @@ int main(int argc, char *argv[])
       break;
     }
   }
+  printf("Private message is _nickname_message\n");
 
   fflush(stdin);
   send(socketService, name, NAMELEN, 0);

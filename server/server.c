@@ -15,7 +15,7 @@
 #include "queue.h"
 
 #define MAXLINE 4150
-#define MAXCLIENTS 2
+#define MAXCLIENTS 3
 #define TRUE 1
 #define GREEN(string) "\x1b[32m" string "\x1b[0m"
 #define RED(string) "\x1b[31m" string "\x1b[0m"
