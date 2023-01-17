@@ -138,6 +138,7 @@ int main(int argc, char *argv[])
     }
   }
   printf("Private message is _nickname_message\n");
+  printf("/users for view users connected\n");
 
   fflush(stdin);
   send(socketService, name, NAMELEN, 0);
