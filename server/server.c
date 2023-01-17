@@ -15,10 +15,11 @@
 #include "queue.h"
 
 #define MAXLINE 4150
-#define MAXCLIENTS 3
+#define MAXCLIENTS 5
 #define TRUE 1
 #define GREEN(string) "\x1b[32m" string "\x1b[0m"
 #define RED(string) "\x1b[31m" string "\x1b[0m"
+#define YELLOW(string) "\x1b[33m" string "\x1b[0m"
 
 ClientService *clients[MAXCLIENTS];
 
@@ -69,6 +70,14 @@ void removeClient(int id);
 void sendMessage(char *message, int id);
 
 /**
+ * @brief Send a message to one person
+ *
+ * @param message
+ * @param id
+ */
+void uniqueMessage(char *message, int id);
+
+/**
  * @brief Where receive and send message, also add people in queue
  *
  * @param clientThread
@@ -82,6 +91,14 @@ void handleClient(ClientService *clientThread);
  * @param clientThread
  */
 void responseJoinChat(ClientService *clientThread);
+
+/**
+ * @brief verify if is a command
+ *
+ * @param message
+ * @return int
+ */
+int executeCommand(char *message, char *responseMessage, int id);
 
 int main(int argc, char *argv[])
 {
@@ -235,6 +252,25 @@ void sendMessage(char *message, int id)
   }
   pthread_mutex_unlock(&clientMutex);
 }
+void uniqueMessage(char *message, int id)
+{
+  pthread_mutex_lock(&clientMutex);
+  for (int i = 0; i < MAXCLIENTS; ++i)
+  {
+
+    if (clients[i] && clients[i]->id == id)
+    {
+      if (send(clients[i]->socketFileDescriptor, message, strlen(message), 0) < 0)
+      {
+        perror("ERROR: write to descriptor failed");
+        break;
+      }
+      break;
+    }
+  }
+  pthread_mutex_unlock(&clientMutex);
+}
+
 void handleClient(ClientService *clientThread)
 {
   char buffer[MAXLINE];
@@ -273,7 +309,14 @@ void handleClient(ClientService *clientThread)
 
     if ((messageClient = recv(client->socketFileDescriptor, buffer, MAXLINE, 0)) > 0 && strlen(buffer) > 0)
     {
-      sendMessage(buffer, client->id);
+      char responseMessage[MAXLINE];
+      if (executeCommand(buffer, responseMessage, client->id))
+      {
+        uniqueMessage(responseMessage, client->id);
+        bzero(responseMessage, MAXLINE);
+      }
+      else
+        sendMessage(buffer, client->id);
     }
     else if (messageClient <= 0)
     {
@@ -318,4 +361,50 @@ void responseJoinChat(ClientService *clientThread)
     fprintf(stdout, "Internal Server Error\n");
     exit(1);
   }
+}
+
+int executeCommand(char *buffer, char *responseMessage, int id)
+{
+  int initCommand = 0;
+  size_t lengthBuffer = strlen(buffer);
+  // purgeBuffer(buffer, lengthBuffer);
+
+  for (int i = 1; i < lengthBuffer; i++)
+  {
+    if (buffer[i] == '/')
+    {
+      initCommand = i + 1;
+      break;
+    }
+  }
+
+  if (initCommand != 0)
+  {
+    char verifyWord[8];
+    int counter = 0;
+    for (int i = initCommand; i < lengthBuffer; i++)
+    {
+      verifyWord[counter] = buffer[i];
+      counter++;
+    }
+    if (strcmp(verifyWord, "users\n") != 0)
+      return 0;
+
+    strcat(responseMessage, GREEN("Users connected: \n\t"));
+    for (int i = 0; i < MAXCLIENTS; ++i)
+    {
+      if (clients[i] && clients[i]->id)
+      {
+        char auxChar[MAXLINE];
+        if (id != clients[i]->id)
+          sprintf(auxChar, "- %s\n\t", clients[i]->name);
+        else
+          sprintf(auxChar, YELLOW("- %s (you)\n\t"), clients[i]->name);
+        strcat(responseMessage, auxChar);
+      }
+    }
+    strcat(responseMessage, "\n");
+    return 1;
+  }
+  return 0;
 }
